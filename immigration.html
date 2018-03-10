@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Immigration (Interactive)</title>
+    <script src="d3.js"></script>
+    <style>
+        body {
+            width: 60%;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>The Immigration Effect</h1>
+
+    <div id="chart">
+
+    </div>
+
+    <script>
+
+        // VARIABLES
+
+        //.. What are these for? ..//
+        vis = {}
+        // Instantiating v needed
+        var valueline,
+            width,
+            height,
+            x,
+            y,
+            avgGrowth,
+            orgGDP,
+            finalGDP,
+            val,
+            cumulativeDiff,
+            adjustable_area,
+            midpoint,
+            thirdpoint,
+            tickVals
+
+        // Other ones, I have no clue about
+        var immigrants = 0
+        var pd = {}
+        var baseline = "normal"
+
+
+        // Important initial method?
+        vis.init = () => {
+            vis.loaddata() // .loaddata() method? on vis
+            // loaddata() later with csv
+        }
+
+        // Some svg component hardcoded
+        var arrow = "M7.2,56.6c-5.1-8.3-7.4-18.8-6.9-30.3c0.4-7.5,2.3-15.8,6-25.1l1.1,5.4c0,0.2,0.2,0.3,0.4,0.3c0.2,0,0.3-0.2,0.3-0.4 L6.9,0.3c0-0.1-0.1-0.2-0.2-0.3c-0.1,0-0.3,0-0.4,0L1.3,3.9C1.2,3.9,1.2,4,1.1,4c0,0.1,0,0.3,0,0.4c0.1,0.2,0.4,0.2,0.5,0.1l4.4-3.3 c-3.7,9.3-5.7,17.6-6,25.1C-0.5,37.9,1.9,48.4,7,56.7c5.7,9.3,14.6,15.5,25.8,17.9l0.1-0.2C21.7,72,12.9,65.8,7.2,56.6z"
+
+        //.. Oh Okay, that's what it is for ..//
+        var parseDate = d3.timeParse("%Y")
+        var ww = window.innerWidth
+
+        // .. Text variables - above slider (left hand side)
+        var scenarios1 = {
+            "slide": "If we <span>allowed in</span> <span class='num-imm'></span> <span>immigrants per year</span>",
+            "zero": "If we <span>stopped immigration entirely</span>",
+            "deport": "If we <span>deported all 7.1 million unauthorized immigrant workers</span>",
+            "legalize": "If we <span>legalized all 7.1 million unauthorized immigrant workers</span>",
+            "status-quo": "If we <span>left immigration at current levels</span>",
+            "under-status-quo": "If we <span>allowed in</span> <span class='num-imm'></span> <span>immigrants per year</span>"
+        }
+
+        // .. Text variables - above graph (right hand side)
+        var scenarios2 = {
+            "slide": "We'd <span>gain a cumulative <span class='cumulative-num'></span> in GDP</span> over the next 14 years. Average growth would be <span class='avg-growth'></span>.",
+            "zero": "We'd <span>lose a cumulative <span class='cumulative-num'></span> in GDP</span> over the next 14 years. Average growth would be <span class='avg-growth'></span>.",
+            "deport": "We'd <span>lose a cumulative <span class='cumulative-num'></span> in GDP</span> over the next 14 years. Average growth would be <span class='avg-growth'></span>.",
+            "legalize": "We'd <span>gain a cumulative <span class='cumulative-num'></span> in GDP</span> over the next 14 years. Average growth would be <span class='avg-growth'></span>.",
+            "status-quo": "GDP would reach $24.6 trillion in 2030. Average growth would be <span class='avg-growth'></span>.",
+            "under-status-quo": "We'd <span>lose a cumulative <span class='cumulative-num'></span> in GDP</span> over the next 14 years. Average growth would be <span class='avg-growth'></span>."
+        }
+
+        // .. Text variables - arrow 
+        var cumulative_scenarios = {
+            "slide": "Cumulative gain of <tspan class='cumulative-num'></tspan>",
+            "zero": "Cumulative loss of <tspan class='cumulative-num'></tspan>",
+            "deport": "Cumulative loss of <tspan class='cumulative-num'></tspan>",
+            "legalize": "Cumulative gain of <tspan class='cumulative-num'></tspan>",
+            "status-quo": "",
+            "under-status-quo": "Cumulative loss of <tspan class='cumulative-num'></tspan>"
+        }
+
+        // vis.loaddata instantiated on vis.init
+        vis.loaddata = () => {
+            // Loading in the csv
+            d3.csv("forecasts_LG_May25.csv", (error, data) => {
+                // croppedData an array of data with 2015 < years < 2031 (subset of data) 
+                // data is an array (imported csv)
+                croppedData = data.filter((d) => {
+                    return d["Year"] < 2031 && d["Year"] > 2015
+                })
+
+                // Output
+                //[ {colname : "data", ..}, {}, ... (15)]
+                // console.log(croppedData)
+
+                // ? WTF is vis
+                // .draw() method on vis , taking in croppedData and ? immigrants
+                // not declared yet
+                // vis.draw(croppedData, immigrants)
+                // last {}, since array with single element, used [0] => returns {} 
+                orgGDP = croppedData.slice(-1)[0].gdp / 1000  // ? .gdp not yet defined
+                // console.log(orgGDP)
+            })
+        }
+
+        // ? Some kind of helper function
+        // Checks if num is positive (non zero) true => + , false => 
+        vis.plusminus = (num) => (
+            num > 0 ? "+" : ""
+        )
+
+        // { See them later }
+        function formatFixed(x) {
+            return +(+x).toFixed(1) + "";
+        }
+
+        function fmtFixedPrc(x) {
+            var term = d3.format(".1%")(x)
+            term = term.replace(".0%", " percent")
+            term = term.replace("%", " percent")
+            return term
+        }
+
+        function fmtFixedPrc2(x) {
+            var term = d3.format(".1%")(x)
+            return term.replace(".0%", "%")
+        }
+
+        function lowercaseFmt(term) {
+            return term.replace("We", "we")
+        }
+
+        // ? helper method on vis
+        // Rounding
+        // Used where?
+        vis.fmtMil = (num) => {
+            var n = parseFloat(Math.round(num * 10) / 10)
+            n == 0 ? n = n : n = n + " million"
+            return n
+        }
+
+        // .activate() on vis
+        // ? what do they do? 
+        vis.activate = (val) => {
+            d3.select(".active").classed("active", false)
+            d3.select("#" + val).classed("active", true)
+
+            if (val != "slider") {
+                vis.resetSlider()
+                d3.selectAll(".slider .handle path").attr("fill", "#fff")
+            }
+        }
+
+
+        // running the vis.init method to kicks things off manually
+        vis.init()
+
+        // needs to made conditional for responsiveness
+        var margin = { top: 10, right: 80, bottom: 20, left: 30 },
+            width = 470,
+            height = 600;
+
+        var chart = d3.select("#chart");
+        var svg = chart.append("div").attr("class", "linechart")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .attr("fill", "none")
+
+
+
+    </script>
+</body>
+
+</html>
