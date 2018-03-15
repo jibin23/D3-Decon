@@ -154,18 +154,160 @@
             return n
         }
 
+        // ====================================================== //
+
         // .activate() on vis
-        // ? what do they do? 
+        // Concerns the buttons
+        //  a "Deport all un. immigrants"
+        //  b "Legalize all un. immigrants"
+
         vis.activate = (val) => {
             d3.select(".active").classed("active", false)
             d3.select("#" + val).classed("active", true)
 
+
+            // Checks whether while clicking on the above 2 buttons
+            // the slider is = 1 (initially set)
+            // or else reset to 1 => .resetSlider() on vis
+            // declared under .theSlider() on vis
             if (val != "slider") {
                 vis.resetSlider()
                 d3.selectAll(".slider .handle path").attr("fill", "#fff")
             }
         }
 
+        // .resetButton() on vis
+        // ? what ?
+        vis.resetButton = (data) => {
+            // ? not declared yet
+            vis.processData(data, immigrants, "status-quo")
+            vis.activate("slider") // .activate on vis
+            d3.selectAll(".slider .handle path").attr("fill", "#f3dc6b")
+        }
+
+        // .transitionChart() on vis
+        // ? what
+        vis.transitionChart = (data, immigrants, scenario) => {
+            d3.select("#chart").attr("class", scenario + "-scenario") // scenario?
+            // Same as orgGDP?
+            finalGDP = data.slice(-1)[0].gdp / 1000
+
+
+            // ? must investigate what this is
+            var adjusted_thirdpoint = (data.slice(thirdpoint)[0].gdp / 1000 + data.slice(thirdpoint)[0]["Adjusted Real GDP 2016 $"] / 1000) / 2
+            // the .gdp prop not there yet
+
+
+            // 
+            //  Transition Business
+            //
+
+            // Clarify what transitions do
+            // ? valueline() not declared yet
+            d3.select(".line").transition()
+                .attr("d", (d) => valueline(data))
+
+            // gives the final cy position of circle at the end of line
+            // based on '2030''s GDP ?
+            d3.select(".last-circle").transition()
+                .attr("cy", function (d) {
+                    return y(data.slice(-1)[0].gdp / 1000)
+                })
+
+            // rectabgular area from bottom-left end to top-right end on the line
+            d3.select(".adjustable_area").transition()
+                .attr("d", adjustable_area);
+
+            // the sketchy arrow and label showing cumulative growth/loss
+            // its a <g>
+            d3.select(".swoopy-label").transition()
+                .attr("transform", function () {
+                    return "translate(" + x(data.slice(thirdpoint)[0].date) + "," + y(adjusted_thirdpoint) + ")"
+                })
+
+            // TRANSITION THE LABELS ON CHART
+
+            // Label just beside the line adjacent to the chart showing
+            // % Growth ; GDP of $T 
+            var label = d3.select(".updated-label").transition()
+
+                // transforming y coordinates based on adj to slider
+                .attr("transform", function (d) {
+                    // 600px designated breakpoint
+                    // conditional based translating y
+                    if (ww > 600) {
+                        // outside the graph
+                        return "translate(" + (width + 10) + "," + y(finalGDP) + ")"
+                    } else {
+                        // inside the graph (although still remains out)
+                        return "translate(" + (width - 165) + "," + y(finalGDP) + ")"
+                    }
+                    // already commented out
+                    // .attr("transform", "translate(" + (width-200) + "," + y(data.slice(6)[0].gdp/1000) + ")")
+                })
+
+            // Adj made to the Side Label
+            // It has 2 children 
+            // a text with .dollar => $T GDP 
+            // b text with .growth => % Growth
+            label.select("text.dollar")
+                .text(function () {
+                    return "GDP of " + d3.format("$.1f")(+finalGDP) + "T"
+                });
+
+            label.select("text.growth")
+                .text(function () {
+                    // Uses Helper ? (what does it do)
+                    return fmtFixedPrc2(avgGrowth) + " GROWTH"
+                });
+
+            // TRANSITION THE TEXT ON RIGHT BAR
+            if (immigrants == 0 && (scenario == "slide" || scenario == "under-status-quo")) {
+                scenario = "zero"
+            }
+
+            // .outcome is above the slider, div.outcome > div.situation > p
+            // containing "If we "
+            // <span> allowed in (when slider used) {OR} deported.... (when button clicked) </span>  
+            // all injected html from object of initial scenarios* with key scenario (takes "slide", "zero", "status-quo" ... as values)
+            if (ww > 600) {
+                // ? scenario value determined when? 
+                d3.select(".outcome1 .situation p").html(scenarios1[scenario] + "...")
+                d3.select(".outcome2 .situation p").html(scenarios2[scenario])
+            } else {
+                d3.select(".outcome2 .situation p").html(scenarios1[scenario] + ", " + lowercaseFmt(scenarios2[scenario]))
+            }
+
+            //
+
+            // with .swoopy-label only the text showing cumm loss/gain
+            // its <text>
+            d3.select(".swoopy-text").html(cumulative_scenarios[scenario])
+
+            var outcome = d3.select(".outcome2").transition()
+            // var GDPdiff = d3.format("$.2f")(Math.abs(+finalGDP- +orgGDP)) + " trillion"
+
+
+            outcome.select(".avg-growth").text(function () {
+                return fmtFixedPrc(avgGrowth)
+            })
+
+            d3.selectAll(".cumulative-num").text(function () {
+                return d3.format("$.1f")(Math.abs(cumulativeDiff / 1000)) + " trillion"
+            });
+
+
+            d3.select(".num-imm").text(function (d) {
+                return formatFixed(d3.format(".1f")(immigrants)) + " million"
+            })
+
+
+
+        } // end of vis.transitionChart
+
+
+        // Supposed End
+        // ====================================================== //
 
         // running the vis.init method to kicks things off manually
         vis.init()
